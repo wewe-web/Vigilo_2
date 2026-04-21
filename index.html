@@ -195,6 +195,50 @@
         border-radius: 4px;
         cursor: pointer;
     }
+
+    /* Aesthetic Search Bar Styling */
+.search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50px;
+    padding: 5px 15px;
+    transition: all 0.3s var(--ease);
+    margin-right: 15px;
+}
+
+.search-container:focus-within {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(229, 9, 20, 0.2);
+    width: 250px; /* Expands when clicked */
+}
+
+.search-input {
+    background: transparent !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 8px !important;
+    width: 150px;
+    font-size: 0.9rem;
+    color: white;
+}
+
+.search-icon {
+    color: var(--text-dim);
+    font-size: 1.1rem;
+}
+
+/* Ensure Cast are Circles */
+#row-Person .card {
+    border-radius: 50% !important;
+    aspect-ratio: 1/1 !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
+    object-fit: cover;
+}
     </style>
 </head>
 <body>
@@ -219,12 +263,17 @@
     </section>
 
     <nav id="navbar">
-        <div class="logo">VIGILO</div>
-        <div style="display: flex; gap: 20px; align-items: center;">
-            <div id="admin-tools"></div>
-            <button class="btn btn-grey" style="padding: 10px 20px; font-size: 0.75rem;" onclick="logout()">LOGOUT</button>
+    <div class="logo">VIGILO</div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" placeholder="Search titles..." onkeyup="globalSearch(this.value)">
         </div>
-    </nav>
+        
+        <div id="admin-tools"></div>
+        <button class="btn btn-grey" style="padding: 10px 20px; font-size: 0.75rem;" onclick="logout()">LOGOUT</button>
+    </div>
+</nav>
 
     <main id="home-screen" style="display: none;">
         <div class="hero-slider" id="hero-slider-container">
@@ -767,6 +816,55 @@
             epList.appendChild(grid);
         }
     };
+
+        // FIX: Force search results to trigger the 'select' function
+function searchMedia(val) {
+    const resDiv = document.getElementById('media-results');
+    if(!val) { resDiv.style.display = 'none'; return; }
+    
+    // Filter library for movies/series
+    const matches = fullLibrary.filter(i => 
+        (i.type === 'Movie' || i.type === 'Series') && 
+        i.title.toLowerCase().includes(val.toLowerCase())
+    );
+
+    // We use onclick="selectMedia" directly here to ensure it adds to the array
+    resDiv.innerHTML = matches.map(m => `
+        <div class="search-item" onclick="selectMedia('${m.id}', '${m.title.replace(/'/g, "\\'")}')">
+            ${m.title}
+        </div>
+    `).join('');
+    
+    resDiv.style.display = matches.length ? 'block' : 'none';
+}
+
+// Global Navigation Search Logic
+function globalSearch(query) {
+    if (query.length < 2) {
+        renderUI(); // Reset to normal view if search is empty
+        return;
+    }
+    
+    const container = document.getElementById('dynamic-rows');
+    const hero = document.getElementById('hero-slider-container');
+    hero.style.display = 'none'; // Hide hero during search
+    
+    const filtered = fullLibrary.filter(item => 
+        item.title.toLowerCase().includes(query.toLowerCase())
+    );
+
+    container.innerHTML = `<div class="row"><h3>Search Results for: ${query}</h3><div class="slider" id="search-grid"></div></div>`;
+    const grid = document.getElementById('search-grid');
+    grid.style.flexWrap = 'wrap'; // Allow results to wrap like a grid
+    
+    filtered.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card fade-in';
+        card.style.backgroundImage = `url(${item.cover})`;
+        card.onclick = () => openDetail(item);
+        grid.appendChild(card);
+    });
+}
     </script>
 </body>
 </html>
