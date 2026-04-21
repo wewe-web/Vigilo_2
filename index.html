@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vigilo | Premium Streaming</title>
+    <meta name="theme-color" content="#0b0e14">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="logo.png">
+    
+    <link rel="icon" type="image/png" href="logo.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Lexend:wght@300;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --accent: #e50914;
+            --bg-body: #0b0e14;
+            --bg-card: #151921;
+            --bg-input: #1f242d;
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --ease: cubic-bezier(0.22, 1, 0.36, 1);
+            --shadow-glow: 0 0 20px rgba(229, 9, 20, 0.2);
+        }
+
+        body {
+            margin: 0; background-color: var(--bg-body);
+            color: var(--text-main); font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3, .logo { font-family: 'Lexend', sans-serif; }
+
+        .fade-in { animation: fadeIn 0.8s var(--ease) forwards; }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(20px) scale(0.98); } 
+            to { opacity: 1; transform: translateY(0) scale(1); } 
+        }
+
+        #auth-screen[style*="display: none"], #detail-modal[style*="display: none"] {
+            opacity: 0; pointer-events: none; visibility: hidden;
+        }
+
+        #auth-screen {
+            height: 100vh; display: flex; justify-content: center; align-items: center;
+            background: radial-gradient(circle at center, rgba(229, 9, 20, 0.15) 0%, var(--bg-body) 70%), 
+                        linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
+                        url('https://images.unsplash.com/photo-1574267432553-4b4628081c31?q=80&w=2000&auto=format&fit=crop');
+            background-size: cover;
+        }
+        .auth-card { 
+            background: rgba(21, 25, 33, 0.8); padding: 50px; border-radius: 20px; 
+            text-align: center; width: 380px; backdrop-filter: blur(30px);
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+        }
+
+        nav {
+            position: fixed; top: 0; width: 100%; padding: 25px 5%;
+            display: none; justify-content: space-between; align-items: center;
+            z-index: 1000; transition: all 0.4s var(--ease); box-sizing: border-box;
+        }
+        nav.scrolled { 
+            background: rgba(11, 14, 20, 0.85); 
+            backdrop-filter: blur(15px); 
+            padding: 15px 5%;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .logo { color: var(--accent); font-size: 2rem; font-weight: 800; letter-spacing: -1.5px; }
+
+        .hero-slider { position: relative; height: 85vh; width: 100%; overflow: hidden; }
+        
+        /* MOBILE HERO DOUBLE SIZE */
+        @media (max-width: 768px) {
+            .hero-slider { height: 120vh !important; }
+            .hero { background-position: center center !important; }
+            .hero-title { font-size: 3.5rem !important; }
+        }
+
+        .hero {
+            height: 100%; width: 100%; padding: 0 5%; display: flex; flex-direction: column; justify-content: center;
+            background-size: cover; background-position: center 20%; position: absolute; top: 0; left: 0;
+            opacity: 0; transition: opacity 1.2s var(--ease); pointer-events: none;
+            box-sizing: border-box;
+        }
+        .hero.active { opacity: 1; pointer-events: auto; z-index: 1; }
+        
+        .hero-overlay { 
+            position: absolute; inset: 0; 
+            background: linear-gradient(90deg, var(--bg-body) 5%, transparent 70%), 
+                        linear-gradient(to top, var(--bg-body) 5%, transparent 40%); 
+        }
+        .hero-content { position: relative; z-index: 2; max-width: 750px; }
+        .hero-title { font-size: clamp(3.5rem, 9vw, 6rem); font-weight: 800; margin: 0; letter-spacing: -4px; line-height: 0.85; }
+
+        .slider-dots { position: absolute; bottom: 30px; left: 5%; z-index: 10; display: flex; gap: 10px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.2); cursor: pointer; transition: 0.3s; }
+        .dot.active { background: var(--accent); width: 30px; border-radius: 10px; }
+
+        .row { padding: 50px 5% 0; position: relative; margin-top: -60px; }
+        .collection-row h3 { font-size: 1.4rem; margin-bottom: 10px; color: #f8fafc; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        
+        .slider { display: flex; overflow-x: auto; gap: 20px; padding: 20px 0; scrollbar-width: none; }
+        .slider::-webkit-scrollbar { display: none; }
+        
+        .card {
+            min-width: 320px; aspect-ratio: 16/9; background: #1a1a1a; border-radius: 12px;
+            cursor: pointer; transition: all 0.6s var(--ease); background-size: cover;
+            position: relative; border: 1px solid rgba(255,255,255,0.03);
+            overflow: hidden;
+        }
+        .card:hover { transform: scale(1.05); z-index: 10; border-color: var(--accent); box-shadow: var(--shadow-glow); }
+
+        .album-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 20px; margin-top: 25px;
+        }
+        .album-item {
+            aspect-ratio: 16/9; background-size: cover; border-radius: 10px;
+            cursor: pointer; transition: 0.4s var(--ease); border: 1px solid #2d3748;
+        }
+        .album-item:hover { transform: translateY(-8px); border-color: var(--accent); box-shadow: var(--shadow-glow); }
+
+        #detail-modal {
+            display: none; position: fixed; inset: 0; z-index: 2000;
+            background: rgba(5, 7, 10, 0.96); backdrop-filter: blur(12px);
+            overflow-y: auto; justify-content: center; padding: 40px 0;
+        }
+        .modal-content {
+            background: var(--bg-card); width: 95%; max-width: 1000px;
+            border-radius: 24px; overflow: hidden; position: relative; align-self: start;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+        }
+
+        #admin-panel {
+            display: none; position: fixed; inset: 0; background: rgba(5, 7, 10, 0.99);
+            z-index: 3000; padding: 40px; overflow-y: auto;
+        }
+        .admin-form { max-width: 800px; margin: 0 auto; background: #0f1218; padding: 45px; border-radius: 24px; border: 1px solid #2d3748; }
+        
+        input, textarea, select { 
+            width: 100%; padding: 16px; margin: 12px 0; background: var(--bg-input); 
+            border: 1px solid #2d3748; color: white; border-radius: 10px; box-sizing: border-box; 
+            font-family: 'Inter', sans-serif; outline: none; transition: 0.3s;
+        }
+        input:focus, select:focus { border-color: var(--accent); background: #262c38; }
+
+        .btn { padding: 14px 30px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.4s var(--ease); display: inline-flex; align-items: center; gap: 10px; font-family: 'Lexend', sans-serif; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-red { background: var(--accent); color: white; }
+        .btn-red:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow); }
+        .btn-grey { background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.05); }
+        .btn-grey:hover { background: rgba(255,255,255,0.15); }
+
+        .ep-row { display: flex; align-items: center; padding: 22px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: 0.3s; }
+        .ep-row:hover { background: rgba(255,255,255,0.03); padding-left: 30px; }
+
+        #player-screen { display: none; position: fixed; inset: 0; background: #000; z-index: 4000; }
+        .player-controls { position: fixed; top: 30px; right: 30px; display: flex; gap: 12px; z-index: 5000; }
+
+        .cast-chip { display: inline-flex; align-items: center; background: #1e293b; padding: 6px 16px; border-radius: 30px; margin: 6px; font-size: 0.85rem; border: 1px solid #334155; }
+        .search-results { background: #1e293b; max-height: 200px; overflow-y: auto; border-radius: 10px; margin-top: -10px; margin-bottom: 15px; display: none; border: 1px solid var(--accent); }
+        .search-item { padding: 12px 18px; cursor: pointer; border-bottom: 1px solid #334155; }
+        .search-item:hover { background: var(--accent); color: white; }
+    </style>
+</head>
+<body>
+
+    <section id="auth-screen">
+        <div class="auth-card fade-in">
+            <span class="logo" style="margin-bottom: 15px; display: block;">VIGILO</span>
+            <p id="auth-msg" style="color: var(--text-dim); margin-bottom: 35px; font-weight: 500;">Premium Interface Experience</p>
+            
+            <div id="admin-pass-field" style="display: none;">
+                <input type="password" id="admin-pw" placeholder="Admin Keyphrase">
+                <button class="btn btn-red" style="width: 100%; margin-top: 15px;" onclick="verifyAdmin()">Unlock Studio</button>
+                <button class="btn btn-grey" style="width: 100%; margin-top: 10px;" onclick="toggleAdminField(false)">Go Back</button>
+            </div>
+
+            <div id="auth-buttons">
+                <button class="btn btn-red" style="width: 100%;" onclick="toggleAdminField(true)">ADMIN LOGIN</button>
+                <div style="margin: 20px 0; color: #475569; font-size: 0.8rem; letter-spacing: 2px;">SECURE ACCESS</div>
+                <button class="btn btn-grey" style="width: 100%;" onclick="login('user')">BROWSE AS GUEST</button>
+            </div>
+        </div>
+    </section>
+
+    <nav id="navbar">
+        <div class="logo">VIGILO</div>
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <div id="admin-tools"></div>
+            <button class="btn btn-grey" style="padding: 10px 20px; font-size: 0.75rem;" onclick="logout()">LOGOUT</button>
+        </div>
+    </nav>
+
+    <main id="home-screen" style="display: none;">
+        <div class="hero-slider" id="hero-slider-container">
+            <div class="slider-dots" id="hero-dots"></div>
+        </div>
+
+        <div id="dynamic-rows"></div>
+    </main>
+
+    <div id="detail-modal" onclick="if(event.target === this) closeDetail()">
+        <div class="modal-content fade-in">
+            <div id="modal-img" style="height: 500px; background-size: cover; position: relative; background-position: center;">
+                <div id="edit-controls" style="position: absolute; left: 30px; bottom: 30px; display: flex; gap: 12px;"></div>
+                <button class="btn btn-grey" style="position: absolute; right: 30px; top: 30px; border-radius: 50%; width: 50px; height: 50px; padding: 0; justify-content: center; backdrop-filter: blur(10px);" onclick="closeDetail()">✕</button>
+            </div>
+            <div style="padding: 50px;">
+                <h2 id="modal-title" style="font-size: 3rem; margin: 0; letter-spacing: -2px;"></h2>
+                <p id="modal-date" style="color: var(--accent); font-weight: 700; margin: 15px 0; text-transform: uppercase; font-size: 0.9rem;"></p>
+                <p id="modal-desc" style="color: var(--text-dim); line-height: 1.8; font-size: 1.1rem;"></p>
+                
+                <div id="modal-casts" style="margin-top: 30px;"></div>
+
+                <div id="ep-section">
+                    <h3 id="section-label" style="margin-top: 50px; border-left: 5px solid var(--accent); padding-left: 20px; font-size: 1.5rem;">Collection</h3>
+                    <div id="modal-episodes"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-panel">
+        <div class="admin-form">
+            <h2 id="studio-title" style="color: var(--accent); margin-bottom: 30px;">Vigilo Studio</h2>
+            
+            <select id="up-type" onchange="toggleStudioFields()">
+                <option value="Movie">Movie</option>
+                <option value="Series">TV Series</option>
+                <option value="Album">Album (Featured Collection)</option>
+                <option value="Person">Cast & Crew</option>
+            </select>
+
+            <div id="studio-main-fields">
+                <input type="text" id="up-title" placeholder="Display Title">
+                <input type="text" id="up-cover" placeholder="Cover Image URL">
+                <input type="date" id="up-date">
+                <textarea id="up-synopsis" placeholder="Description / Synopsis Content" rows="4"></textarea>
+                
+                <div id="cast-search-area">
+                    <input type="text" id="cast-search-input" placeholder="Search Cast..." onkeyup="searchPeople(this.value)">
+                    <div id="cast-results" class="search-results"></div>
+                    <div id="selected-casts" style="margin-bottom: 20px;"></div>
+                </div>
+
+                <div id="album-search-area" style="display: none;">
+                    <input type="text" id="media-search-input" placeholder="Search Media for Album..." onkeyup="searchMedia(this.value)">
+                    <div id="media-results" class="search-results"></div>
+                    <div id="selected-media" style="margin-bottom: 20px;"></div>
+                </div>
+
+                <div id="video-fields">
+                    <h3 id="content-label" style="color: #64748b; font-size: 0.9rem;">Content Links</h3>
+                    <div id="ep-inputs"></div>
+                    <button id="add-ep-btn" class="btn btn-grey" style="width: 100%; margin-top: 10px;" onclick="addEpField()">+ New Episode/Link</button>
+                </div>
+            </div>
+            
+            <div style="margin-top: 50px; display: flex; gap: 20px;">
+                <button class="btn btn-red" style="flex: 2;" onclick="saveToBin()">PUBLISH NOW</button>
+                <button class="btn btn-grey" style="flex: 1;" onclick="closeStudio()">DISCARD</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="player-screen">
+        <div class="player-controls">
+            <button id="next-ep-btn" class="btn btn-red" style="display:none" onclick="playNextEpisode()">NEXT</button>
+            <button class="btn btn-grey" onclick="closePlayer()">CLOSE ✕</button>
+        </div>
+        <iframe id="video-frame" width="100%" height="100%" frameborder="0" allow="autoplay; fullscreen"></iframe>
+    </div>
+
+    <script>
+        // PWA SERVICE WORKER REGISTRATION
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then(() => console.log("SW Registered"));
+            });
+        }
+
+        const BINS = ['697bf24443b1c97be955f57b', '697bf23343b1c97be955f560', '697bf22243b1c97be955f549'];
+        const KEY = '$2a$10$S78FrQhTp4AP.zB/dT4La.TwKKmMXjNYybnb8j.E5WtVPhvCReBmu';
+        const ADMIN_PW = "iamtheadminofthisweb";
+        
+        let fullLibrary = [];
+        let selectedCastIds = [];
+        let selectedMediaIds = [];
+        let editingId = null;
+        let currentPlaylist = [];
+        let currentIndex = -1;
+        let heroIndex = 0;
+        let heroTimer;
+
+        window.onload = () => {
+            const savedSession = localStorage.getItem('vigilo_session');
+            if(savedSession) login(savedSession);
+        };
+
+        window.onscroll = () => {
+            const nav = document.getElementById('navbar');
+            if (window.pageYOffset > 50) nav.classList.add('scrolled');
+            else nav.classList.remove('scrolled');
+        };
+
+        function toggleAdminField(show) {
+            document.getElementById('admin-pass-field').style.display = show ? 'block' : 'none';
+            document.getElementById('auth-buttons').style.display = show ? 'none' : 'block';
+        }
+
+        function verifyAdmin() {
+            if(document.getElementById('admin-pw').value === ADMIN_PW) login('admin');
+            else alert("Unauthorized access.");
+        }
+
+        function login(role) {
+            localStorage.setItem('vigilo_session', role);
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('home-screen').style.display = 'block';
+            document.getElementById('navbar').style.display = 'flex';
+            if(role === 'admin') {
+                document.getElementById('admin-tools').innerHTML = `<button class="btn btn-red" style="padding:8px 18px" onclick="openStudio()">+ STUDIO</button>`;
+            }
+            loadLibrary();
+        }
+
+        function logout() { localStorage.removeItem('vigilo_session'); location.reload(); }
+
+        async function loadLibrary() {
+            fullLibrary = [];
+            for (let bin of BINS) {
+                try {
+                    const res = await axios.get(`https://api.jsonbin.io/v3/b/${bin}/latest`, { headers: {'X-Master-Key': KEY} });
+                    if(Array.isArray(res.data.record)) { fullLibrary.push(...res.data.record); }
+                } catch(e) {}
+            }
+            renderUI();
+            setupHeroSlider();
+        }
+
+        function setupHeroSlider() {
+            const heroContainer = document.getElementById('hero-slider-container');
+            const heroItems = fullLibrary.filter(i => i.type === 'Movie' || i.type === 'Series').slice(0, 5);
+            heroContainer.innerHTML = '<div class="slider-dots" id="hero-dots"></div>';
+            
+            heroItems.forEach((item, idx) => {
+                const hero = document.createElement('div');
+                hero.className = `hero ${idx === 0 ? 'active' : ''}`;
+                hero.style.backgroundImage = `url(${item.cover})`;
+                hero.innerHTML = `
+                    <div class="hero-overlay"></div>
+                    <div class="hero-content">
+                        <h1 class="hero-title">${item.title}</h1>
+                        <p style="font-size: 1.25rem; color: #cbd5e1; margin: 30px 0; line-height: 1.5;">${item.synopsis.substring(0, 160)}...</p>
+                        <div style="display: flex; gap: 20px;">
+                            <button class="btn btn-red" onclick='openDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>▶ Watch Now</button>
+                            <button class="btn btn-grey" onclick='openDetail(${JSON.stringify(item).replace(/'/g, "&apos;")})'>ⓘ Info</button>
+                        </div>
+                    </div>`;
+                heroContainer.appendChild(hero);
+
+                const dot = document.createElement('div');
+                dot.className = `dot ${idx === 0 ? 'active' : ''}`;
+                dot.onclick = () => setHeroSlide(idx);
+                document.getElementById('hero-dots').appendChild(dot);
+            });
+            startHeroTimer();
+        }
+
+        function setHeroSlide(idx) {
+            clearInterval(heroTimer);
+            const slides = document.querySelectorAll('.hero');
+            const dots = document.querySelectorAll('.dot');
+            if(!slides.length) return;
+            slides.forEach(s => s.classList.remove('active'));
+            dots.forEach(d => d.classList.remove('active'));
+            heroIndex = idx;
+            slides[heroIndex].classList.add('active');
+            dots[heroIndex].classList.add('active');
+            startHeroTimer();
+        }
+
+        function startHeroTimer() {
+            heroTimer = setInterval(() => {
+                const slides = document.querySelectorAll('.hero');
+                if(slides.length === 0) return;
+                let next = (heroIndex + 1) % slides.length;
+                setHeroSlide(next);
+            }, 5000);
+        }
+
+        function renderUI() {
+            const container = document.getElementById('dynamic-rows');
+            container.innerHTML = '';
+            
+            // 1. ALBUM RENDERING (AS INDIVIDUAL ROWS)
+            const albums = fullLibrary.filter(i => i.type === 'Album');
+            albums.forEach(album => {
+                const row = document.createElement('div');
+                row.className = 'row collection-row';
+                row.innerHTML = `<h3>${album.title} <span style="font-size: 0.8rem; color: var(--accent); cursor:pointer" onclick='openDetail(${JSON.stringify(album).replace(/'/g, "&apos;")})'>SEE FULL ➔</span></h3><div class="slider" id="album-row-${album.id}"></div>`;
+                container.appendChild(row);
+                
+                const slider = document.getElementById(`album-row-${album.id}`);
+                if(album.mediaIds) {
+                    album.mediaIds.forEach(mid => {
+                        const item = fullLibrary.find(x => x.id == mid);
+                        if(item) {
+                            const card = document.createElement('div');
+                            card.className = 'card fade-in';
+                            card.style.backgroundImage = `url(${item.cover})`;
+                            card.onclick = () => openDetail(item);
+                            slider.appendChild(card);
+                        }
+                    });
+                }
+            });
+
+            // 2. STANDARD RENDERING (FOR MOVIES/SERIES/PEOPLE)
+            const standardTypes = ["Movie", "Series", "Person"];
+            standardTypes.forEach(type => {
+                const items = fullLibrary.filter(i => i.type === type);
+                if(items.length === 0) return;
+                const row = document.createElement('div');
+                row.className = 'row collection-row';
+                row.innerHTML = `<h3>${type === 'Person' ? 'Cast & Crew' : type + 's'}</h3><div class="slider" id="row-${type}"></div>`;
+                container.appendChild(row);
+                const slider = document.getElementById(`row-${type}`);
+                items.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'card fade-in';
+                    card.style.backgroundImage = `url(${item.cover})`;
+                    card.onclick = () => openDetail(item);
+                    slider.appendChild(card);
+                });
+            });
+        }
+
+        function toggleStudioFields() {
+            const type = document.getElementById('up-type').value;
+            document.getElementById('video-fields').style.display = (type === 'Movie' || type === 'Series') ? 'block' : 'none';
+            document.getElementById('cast-search-area').style.display = (type === 'Movie' || type === 'Series') ? 'block' : 'none';
+            document.getElementById('album-search-area').style.display = (type === 'Album') ? 'block' : 'none';
+            document.getElementById('content-label').innerText = type === 'Movie' ? 'Direct Source' : 'Season Episodes';
+        }
+
+        function openStudio(editItem = null) {
+            editingId = editItem ? editItem.id : null;
+            document.getElementById('admin-panel').style.display = 'block';
+            document.getElementById('ep-inputs').innerHTML = '';
+            document.getElementById('selected-casts').innerHTML = '';
+            document.getElementById('selected-media').innerHTML = '';
+            selectedCastIds = [];
+            selectedMediaIds = [];
+            if(editItem) {
+                document.getElementById('studio-title').innerText = "Update Content";
+                document.getElementById('up-type').value = editItem.type;
+                document.getElementById('up-title').value = editItem.title;
+                document.getElementById('up-cover').value = editItem.cover;
+                document.getElementById('up-synopsis').value = editItem.synopsis;
+                document.getElementById('up-date').value = editItem.releaseDate || '';
+                if(editItem.castIds) editItem.castIds.forEach(id => {
+                    const p = fullLibrary.find(x => x.id == id);
+                    if(p) selectPerson(p.id, p.title);
+                });
+                if(editItem.mediaIds) editItem.mediaIds.forEach(id => {
+                    const m = fullLibrary.find(x => x.id == id);
+                    if(m) selectMedia(m.id, m.title);
+                });
+                if(editItem.episodes) editItem.episodes.forEach(ep => addEpField(ep));
+            } else {
+                document.getElementById('studio-title').innerText = "New Content";
+                addEpField();
+            }
+            toggleStudioFields();
+        }
+
+        function closeStudio() { document.getElementById('admin-panel').style.display = 'none'; editingId = null; }
+
+        function searchPeople(val) {
+            const resDiv = document.getElementById('cast-results');
+            if(!val) { resDiv.style.display = 'none'; return; }
+            const matches = fullLibrary.filter(i => i.type === 'Person' && i.title.toLowerCase().includes(val.toLowerCase()));
+            resDiv.innerHTML = matches.map(m => `<div class="search-item" onclick="selectPerson('${m.id}', '${m.title}')">${m.title}</div>`).join('');
+            resDiv.style.display = matches.length ? 'block' : 'none';
+        }
+
+        function selectPerson(id, title) {
+            if(selectedCastIds.includes(id)) return;
+            selectedCastIds.push(id.toString());
+            const chip = document.createElement('span');
+            chip.className = 'cast-chip';
+            chip.innerHTML = `${title} <small style="margin-left:8px; cursor:pointer; color:var(--accent)" onclick="removeChip(this, '${id}', 'cast')">✕</small>`;
+            document.getElementById('selected-casts').appendChild(chip);
+            document.getElementById('cast-results').style.display = 'none';
+            document.getElementById('cast-search-input').value = '';
+        }
+
+        function searchMedia(val) {
+            const resDiv = document.getElementById('media-results');
+            if(!val) { resDiv.style.display = 'none'; return; }
+            const matches = fullLibrary.filter(i => (i.type === 'Movie' || i.type === 'Series') && i.title.toLowerCase().includes(val.toLowerCase()));
+            resDiv.innerHTML = matches.map(m => `<div class="search-item" onclick="selectMedia('${m.id}', '${m.title}')">${m.title}</div>`).join('');
+            resDiv.style.display = matches.length ? 'block' : 'none';
+        }
+
+        function selectMedia(id, title) {
+            if(selectedMediaIds.includes(id)) return;
+            selectedMediaIds.push(id.toString());
+            const chip = document.createElement('span');
+            chip.className = 'cast-chip';
+            chip.innerHTML = `${title} <small style="margin-left:8px; cursor:pointer; color:var(--accent)" onclick="removeChip(this, '${id}', 'media')">✕</small>`;
+            document.getElementById('selected-media').appendChild(chip);
+            document.getElementById('media-results').style.display = 'none';
+            document.getElementById('media-search-input').value = '';
+        }
+
+        function removeChip(el, id, type) {
+            if(type === 'cast') selectedCastIds = selectedCastIds.filter(x => x != id);
+            else selectedMediaIds = selectedMediaIds.filter(x => x != id);
+            el.parentElement.remove();
+        }
+
+        async function saveToBin() {
+            const type = document.getElementById('up-type').value;
+            const episodes = [];
+            document.querySelectorAll('.ep-entry').forEach(el => {
+                const t = el.querySelector('.e-title').value;
+                if(t) episodes.push({ 
+                    title: t, 
+                    link: el.querySelector('.e-link').value.replace('/view', '/preview'), 
+                    desc: el.querySelector('.e-desc').value 
+                });
+            });
+            const entry = {
+                id: editingId || Date.now(),
+                type: type,
+                title: document.getElementById('up-title').value,
+                cover: document.getElementById('up-cover').value,
+                synopsis: document.getElementById('up-synopsis').value,
+                releaseDate: document.getElementById('up-date').value,
+                castIds: selectedCastIds,
+                mediaIds: selectedMediaIds,
+                episodes: episodes,
+                timestamp: new Date().toISOString()
+            };
+            let success = false;
+            for (let binId of BINS) {
+                try {
+                    const res = await axios.get(`https://api.jsonbin.io/v3/b/${binId}/latest`, { headers: {'X-Master-Key': KEY} });
+                    let data = res.data.record;
+                    if(editingId) data = data.filter(i => i.id != editingId);
+                    if(!editingId || (editingId && fullLibrary.find(x => x.id == editingId))) {
+                        data.unshift(entry);
+                        await axios.put(`https://api.jsonbin.io/v3/b/${binId}`, data, { headers: { 'X-Master-Key': KEY, 'Content-Type': 'application/json' } });
+                        success = true; break;
+                    }
+                } catch(e) {}
+            }
+            if(success) location.reload();
+        }
+
+        function openDetail(item) {
+            const isAdmin = localStorage.getItem('vigilo_session') === 'admin';
+            document.getElementById('detail-modal').style.display = 'flex';
+            document.getElementById('modal-img').style.backgroundImage = `linear-gradient(to top, var(--bg-card), transparent), url(${item.cover})`;
+            document.getElementById('modal-title').innerText = item.title;
+            document.getElementById('modal-desc').innerText = item.synopsis;
+            const editBox = document.getElementById('edit-controls');
+            editBox.innerHTML = isAdmin ? `
+                <button class="btn btn-red" onclick='openStudio(${JSON.stringify(item).replace(/'/g, "&apos;")})'>Edit Entry</button>
+                <button class="btn btn-grey" onclick="deleteItem('${item.id}')">Delete</button>
+            ` : '';
+            const castBox = document.getElementById('modal-casts');
+            castBox.innerHTML = '';
+            if(item.castIds) {
+                item.castIds.forEach(id => {
+                    const person = fullLibrary.find(p => p.id == id);
+                    if(person) castBox.innerHTML += `<span class="cast-chip" style="cursor:pointer" onclick='openDetail(${JSON.stringify(person).replace(/'/g, "&apos;")})'>${person.title}</span>`;
+                });
+            }
+            const epList = document.getElementById('modal-episodes');
+            const sectionLabel = document.getElementById('section-label');
+            epList.innerHTML = '';
+            if(item.type === 'Person') {
+                sectionLabel.innerText = "Notable Appearances";
+                const appearances = fullLibrary.filter(m => m.castIds && m.castIds.includes(item.id.toString()));
+                appearances.forEach(m => {
+                    epList.innerHTML += `<div class="ep-row" onclick='openDetail(${JSON.stringify(m).replace(/'/g, "&apos;")})'>${m.title}</div>`;
+                });
+            } else if (item.type === 'Album') {
+                sectionLabel.innerText = "Featured Collection";
+                const grid = document.createElement('div');
+                grid.className = 'album-grid';
+                item.mediaIds.forEach(id => {
+                    const m = fullLibrary.find(x => x.id == id);
+                    if(m) {
+                        const div = document.createElement('div');
+                        div.className = 'album-item';
+                        div.style.backgroundImage = `url(${m.cover})`;
+                        div.onclick = () => openDetail(m);
+                        grid.appendChild(div);
+                    }
+                });
+                epList.appendChild(grid);
+            } else {
+                sectionLabel.innerText = "Episodes & Content";
+                currentPlaylist = item.episodes;
+                item.episodes.forEach((ep, i) => {
+                    epList.innerHTML += `<div class="ep-row" onclick="playVideo(${i})">
+                        <div style="width:50px; font-weight:800; color:var(--accent); font-size:1.2rem">${i+1}</div>
+                        <div style="flex:1"><b style="font-size:1.1rem">${ep.title}</b><br><small style="color:var(--text-dim)">${ep.desc}</small></div>
+                        <div style="color:var(--accent); font-weight:700">PLAY ▶</div>
+                    </div>`;
+                });
+            }
+        }
+
+        async function deleteItem(id) {
+            if(!confirm("Permenantly remove this entry?")) return;
+            for (let binId of BINS) {
+                try {
+                    const res = await axios.get(`https://api.jsonbin.io/v3/b/${binId}/latest`, { headers: {'X-Master-Key': KEY} });
+                    let data = res.data.record;
+                    if(data.find(i => i.id == id)) {
+                        data = data.filter(i => i.id != id);
+                        await axios.put(`https://api.jsonbin.io/v3/b/${binId}`, data, { headers: { 'X-Master-Key': KEY } });
+                        location.reload();
+                        return;
+                    }
+                } catch(e) {}
+            }
+        }
+
+        function addEpField(data = null) {
+            const div = document.createElement('div');
+            div.className = "ep-entry";
+            div.style = "background: #161b22; padding: 25px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #30363d;";
+            div.innerHTML = `
+                <input type="text" class="e-title" placeholder="Episode Title" value="${data ? data.title : ''}">
+                <input type="text" class="e-link" placeholder="Stream/GDrive Link" value="${data ? data.link : ''}">
+                <textarea class="e-desc" placeholder="Brief description of the content...">${data ? data.desc : ''}</textarea>
+                <button class="btn btn-grey" style="width:100%; margin-top:15px; font-size:0.7rem; color:var(--accent)" onclick="this.parentElement.remove()">Remove This Link</button>
+            `;
+            document.getElementById('ep-inputs').appendChild(div);
+        }
+
+        function playVideo(index) {
+            currentIndex = index;
+            const ep = currentPlaylist[index];
+            const frame = document.getElementById('video-frame');
+            document.getElementById('player-screen').style.display = 'block';
+            frame.src = ep.link;
+            const nextBtn = document.getElementById('next-ep-btn');
+            nextBtn.style.display = (currentIndex < currentPlaylist.length - 1) ? 'block' : 'none';
+        }
+
+        function playNextEpisode() { if(currentIndex < currentPlaylist.length - 1) playVideo(currentIndex + 1); }
+        function closeDetail() { document.getElementById('detail-modal').style.display = 'none'; }
+        function closePlayer() { 
+            document.getElementById('player-screen').style.display = 'none'; 
+            document.getElementById('video-frame').src = ''; 
+        }
+    </script>
+</body>
+</html>
