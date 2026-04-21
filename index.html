@@ -163,6 +163,38 @@
         .search-results { background: #1e293b; max-height: 200px; overflow-y: auto; border-radius: 10px; margin-top: -10px; margin-bottom: 15px; display: none; border: 1px solid var(--accent); }
         .search-item { padding: 12px 18px; cursor: pointer; border-bottom: 1px solid #334155; }
         .search-item:hover { background: var(--accent); color: white; }
+
+
+        /* ADDED: Circle Cast Photos & 4-Item Limit styling */
+    #row-Person .card {
+        min-width: 150px !important;
+        width: 150px !important;
+        height: 150px !important;
+        border-radius: 50% !important; /* Circle shape */
+        aspect-ratio: 1/1 !important;
+        border: 2px solid rgba(255,255,255,0.1);
+    }
+    
+    /* Limit Home Rows to 4 items and hide the rest */
+    .slider .card:nth-child(n+5) {
+        display: none;
+    }
+    
+    /* When viewing "Full" in modal, show all */
+    .album-grid .album-item {
+        display: block !important;
+    }
+
+    .edit-album-btn {
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        margin-left: 10px;
+        background: #1e293b;
+        border: 1px solid var(--accent);
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+    }
     </style>
 </head>
 <body>
@@ -664,6 +696,77 @@
             document.getElementById('player-screen').style.display = 'none'; 
             document.getElementById('video-frame').src = ''; 
         }
+
+        /* ADDITION: Admin Album Title Click 
+       This function enables the "Direct Edit" when clicking album titles
+    */
+    function setupAdminAlbumClicks() {
+        const isAdmin = localStorage.getItem('vigilo_session') === 'admin';
+        if (!isAdmin) return;
+
+        document.querySelectorAll('.collection-row h3').forEach(header => {
+            // Check if it's an Album row
+            const albumName = header.innerText.split('SEE FULL')[0].trim();
+            const albumData = fullLibrary.find(i => i.type === 'Album' && i.title === albumName);
+            
+            if (albumData) {
+                const editSpan = document.createElement('span');
+                editSpan.className = 'edit-album-btn';
+                editSpan.innerText = 'EDIT';
+                editSpan.onclick = (e) => {
+                    e.stopPropagation();
+                    openStudio(albumData);
+                };
+                header.appendChild(editSpan);
+            }
+        });
+    }
+
+    /* OVERRIDE: Updating the renderUI to call the click setup 
+       I'm adding this at the end of your existing renderUI logic
+    */
+    const originalRenderUI = renderUI;
+    renderUI = function() {
+        originalRenderUI();
+        setupAdminAlbumClicks();
+        
+        // Ensure People cards are forced to 1:1 in JS as a backup to CSS
+        document.querySelectorAll('#row-Person .card').forEach(card => {
+            card.style.height = card.offsetWidth + 'px';
+        });
+    };
+
+    /* ADDITION: Enhanced Album Search inside Studio
+       Ensures you can search and add more movies/series to an album
+    */
+    function addMediaToAlbum(item) {
+        if (!selectedMediaIds.includes(item.id.toString())) {
+            selectMedia(item.id, item.title);
+        }
+    }
+
+    // This ensures the "Full View" modal shows everything regardless of the 4-item home limit
+    const originalOpenDetail = openDetail;
+    openDetail = function(item) {
+        originalOpenDetail(item);
+        if (item.type === 'Album') {
+            const epList = document.getElementById('modal-episodes');
+            epList.innerHTML = ''; // Clear and re-render full grid
+            const grid = document.createElement('div');
+            grid.className = 'album-grid';
+            item.mediaIds.forEach(id => {
+                const m = fullLibrary.find(x => x.id == id);
+                if(m) {
+                    const div = document.createElement('div');
+                    div.className = 'album-item';
+                    div.style.backgroundImage = `url(${m.cover})`;
+                    div.onclick = () => openDetail(m);
+                    grid.appendChild(div);
+                }
+            });
+            epList.appendChild(grid);
+        }
+    };
     </script>
 </body>
 </html>
