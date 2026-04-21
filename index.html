@@ -239,6 +239,141 @@
     max-width: 140px !important;
     object-fit: cover;
 }
+
+/* Facebook-style Profile Header */
+.profile-header {
+    position: relative;
+    height: 350px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 0 0 20px 20px;
+}
+
+.profile-avatar-container {
+    position: absolute;
+    bottom: -60px;
+    left: 40px;
+    width: 150px;
+    height: 150px;
+    border: 5px solid var(--bg-card);
+    border-radius: 50%;
+    overflow: visible; /* Important for the hat */
+}
+
+.profile-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #1e293b;
+}
+
+/* Birthday Hat & Label */
+.bday-hat {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%) rotate(15deg);
+    font-size: 50px;
+    z-index: 10;
+}
+
+.bday-label {
+    background: #ff4757;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+/* Search Result Circles */
+.search-item-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 12px;
+    object-fit: cover;
+    vertical-align: middle;
+}
+
+    /* MOBILE OPTIMIZATION OVERRIDE */
+@media (max-width: 768px) {
+    /* 1. Navigation: More compact and cleaner */
+    nav {
+        padding: 10px 4% !important;
+    }
+    .logo { font-size: 1.5rem !important; }
+    .search-container { width: 40px; } /* Shrinks to icon only on mobile until tapped */
+    .search-container:focus-within { width: 180px; }
+
+    /* 2. Rows: Tighter spacing and smaller titles */
+    .row { 
+        padding: 20px 4% 0 !important; 
+        margin-top: 0 !important; 
+    }
+    .collection-row h3 { 
+        font-size: 1.1rem !important; 
+        margin-bottom: 5px !important; 
+    }
+
+    /* 3. Cards: Standardize sizes so they don't overflow weirdly */
+    .card {
+        min-width: 160px !important; /* Two cards almost fit side-by-side */
+        height: 100px !important;
+        border-radius: 8px !important;
+    }
+    
+    /* 4. The Hero: Clean text positioning */
+    .hero-content {
+        padding-bottom: 40px;
+    }
+    .hero-title {
+        font-size: 2.5rem !important;
+        letter-spacing: -2px !important;
+    }
+    .hero-content p {
+        display: none; /* Hide long descriptions on mobile hero to save space */
+    }
+
+    /* 5. Modal/Detail View: Full screen and scrollable */
+    .modal-content {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+    }
+    #modal-img { height: 300px !important; }
+    .profile-header { height: 250px !important; }
+    .profile-avatar-container {
+        width: 100px !important;
+        height: 100px !important;
+        left: 20px !important;
+        bottom: -40px !important;
+    }
+
+    /* 6. Admin Panel: Make inputs easier to tap */
+    .admin-form {
+        padding: 20px !important;
+        width: 90% !important;
+    }
+    .btn {
+        width: 100%; /* Stack buttons on mobile */
+        justify-content: center;
+    }
+}
+
+/* Fix for horizontal scrolling bounce */
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+    position: relative;
+}
     </style>
 </head>
 <body>
@@ -865,6 +1000,124 @@ function globalSearch(query) {
         grid.appendChild(card);
     });
 }
+
+    // Helper: Calculate Age and Check Birthday
+function getBdayInfo(dateStr) {
+    if (!dateStr) return { age: '', isBday: false };
+    const bday = new Date(dateStr);
+    const today = new Date();
+    
+    let age = today.getFullYear() - bday.getFullYear();
+    const m = today.getMonth() - bday.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) age--;
+    
+    const isBday = today.getMonth() === bday.getMonth() && today.getDate() === bday.getDate();
+    return { age: age + " years old", isBday };
+}
+
+// UPDATE: Modify the Detail Modal to show the "Facebook Style" for Persons
+const originalOpenDetailFinal = openDetail;
+openDetail = function(item) {
+    if (item.type !== 'Person') {
+        originalOpenDetailFinal(item);
+        return;
+    }
+
+    const { age, isBday } = getBdayInfo(item.releaseDate);
+    const isAdmin = localStorage.getItem('vigilo_session') === 'admin';
+    const modal = document.getElementById('detail-modal');
+    
+    // Find a movie/series they are in to use as a cover, otherwise use a default
+    const credit = fullLibrary.find(m => m.castIds && m.castIds.includes(item.id.toString()));
+    const coverImg = credit ? credit.cover : item.cover;
+
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-content fade-in" style="max-width: 900px;">
+            <div class="profile-header" style="background-image: url('${coverImg}')">
+                <div class="hero-overlay" style="background: linear-gradient(to top, rgba(11,14,20,1), transparent)"></div>
+                <div class="profile-avatar-container">
+                    ${isBday ? '<span class="bday-hat">🥳</span>' : ''}
+                    <img src="${item.cover}" class="profile-avatar">
+                    ${isBday ? '<span class="bday-label">MY BIRTHDAY NOW!!</span>' : ''}
+                </div>
+                <button class="btn btn-grey" style="position: absolute; right: 20px; top: 20px; border-radius: 50%; width: 40px; height: 40px; padding: 0;" onclick="closeDetail()">✕</button>
+            </div>
+            
+            <div style="padding: 80px 40px 40px;">
+                <h2 style="font-size: 2.5rem; margin: 0;">${item.title}</h2>
+                <div style="color: var(--accent); font-weight: 700; margin: 10px 0;">
+                    ${item.synopsis || 'Actor / Director'} • ${age}
+                </div>
+                
+                <div id="edit-controls-p" style="margin-top:15px"></div>
+
+                <h3 style="margin-top: 40px; border-left: 5px solid var(--accent); padding-left: 15px;">Filmography</h3>
+                <div id="person-credits" class="slider" style="gap:15px"></div>
+            </div>
+        </div>
+    `;
+
+    // Add Edit/Delete buttons if Admin
+    if(isAdmin) {
+        document.getElementById('edit-controls-p').innerHTML = `
+            <button class="btn btn-grey" style="font-size:0.7rem" onclick='openStudio(${JSON.stringify(item).replace(/'/g, "&apos;")})'>Edit Profile</button>
+        `;
+    }
+
+    // Fill Filmography
+    const credits = fullLibrary.filter(m => m.castIds && m.castIds.includes(item.id.toString()));
+    const creditBox = document.getElementById('person-credits');
+    credits.forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.style.cssText = `min-width:200px; height:120px; background-image:url(${m.cover})`;
+        div.onclick = () => openDetail(m);
+        creditBox.appendChild(div);
+    });
+};
+
+// UPDATE: Global Search to show Circle Profiles
+function globalSearch(query) {
+    if (query.length < 2) { renderUI(); return; }
+    const container = document.getElementById('dynamic-rows');
+    document.getElementById('hero-slider-container').style.display = 'none';
+    
+    const filtered = fullLibrary.filter(item => item.title.toLowerCase().includes(query.toLowerCase()));
+
+    container.innerHTML = `<div class="row"><h3>Searching for "${query}"</h3><div id="search-grid" style="display:flex; flex-direction:column; gap:10px"></div></div>`;
+    const grid = document.getElementById('search-grid');
+    
+    filtered.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'ep-row';
+        row.style.borderRadius = '10px';
+        const isPerson = item.type === 'Person';
+        row.innerHTML = `
+            <img src="${item.cover}" class="${isPerson ? 'search-item-circle' : 'search-item-thumb'}" 
+                 style="${!isPerson ? 'width:80px; height:45px; border-radius:5px; object-fit:cover; margin-right:15px' : ''}">
+            <div style="flex:1">
+                <b>${item.title}</b><br>
+                <small style="color:var(--text-dim)">${item.type} ${isPerson ? '• ' + (item.synopsis || '') : ''}</small>
+            </div>
+        `;
+        row.onclick = () => openDetail(item);
+        grid.appendChild(row);
+    });
+}
+
+    /* Add this to your window.onload or at the bottom of your scripts */
+document.querySelector('.search-input').addEventListener('focus', function() {
+    if(window.innerWidth < 768) {
+        document.querySelector('.logo').style.display = 'none'; // Hide logo to make room
+    }
+});
+
+document.querySelector('.search-input').addEventListener('blur', function() {
+    if(window.innerWidth < 768) {
+        document.querySelector('.logo').style.display = 'block'; // Show logo again
+    }
+});
     </script>
 </body>
 </html>
