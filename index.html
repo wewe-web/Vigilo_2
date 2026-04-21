@@ -374,6 +374,47 @@ html, body {
     overflow-x: hidden;
     position: relative;
 }
+
+    /* Installation Pop-up Styling */
+#pwa-install-prompt {
+    position: fixed;
+    bottom: -100px; /* Hidden by default */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 400px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    border-radius: 15px;
+    padding: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    transition: bottom 0.5s var(--ease);
+}
+
+#pwa-install-prompt.show {
+    bottom: 30px;
+}
+
+.pwa-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.pwa-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+}
     </style>
 </head>
 <body>
@@ -1015,96 +1056,126 @@ function getBdayInfo(dateStr) {
     return { age: age + " years old", isBday };
 }
 
-// UPDATE: Modify the Detail Modal to show the "Facebook Style" for Persons
-const originalOpenDetailFinal = openDetail;
 openDetail = function(item) {
-    if (item.type !== 'Person') {
-        originalOpenDetailFinal(item);
-        return;
-    }
-
-    const { age, isBday } = getBdayInfo(item.releaseDate);
-    const isAdmin = localStorage.getItem('vigilo_session') === 'admin';
+    // 1. RE-INITIALIZE: Wipe the modal clean to prevent layout "sticking"
     const modal = document.getElementById('detail-modal');
-    
-    // Find a movie/series they are in to use as a cover, otherwise use a default
-    const credit = fullLibrary.find(m => m.castIds && m.castIds.includes(item.id.toString()));
-    const coverImg = credit ? credit.cover : item.cover;
+    modal.innerHTML = '<div class="modal-content fade-in" id="modal-container"></div>';
+    const container = document.getElementById('modal-container');
+    const isAdmin = localStorage.getItem('vigilo_session') === 'admin';
 
-    modal.style.display = 'flex';
-    modal.innerHTML = `
-        <div class="modal-content fade-in" style="max-width: 900px;">
+    // 2. LAYOUT BRANCHING: Handle Person vs. Movie/Series
+    if (item.type === 'Person') {
+        const { age, isBday } = getBdayInfo(item.releaseDate);
+        const credit = fullLibrary.find(m => m.castIds && m.castIds.includes(item.id.toString()));
+        const coverImg = credit ? credit.cover : item.cover;
+
+        container.innerHTML = `
             <div class="profile-header" style="background-image: url('${coverImg}')">
-                <div class="hero-overlay" style="background: linear-gradient(to top, rgba(11,14,20,1), transparent)"></div>
+                <div class="hero-overlay" style="background: linear-gradient(to top, var(--bg-card), transparent)"></div>
                 <div class="profile-avatar-container">
                     ${isBday ? '<span class="bday-hat">🥳</span>' : ''}
                     <img src="${item.cover}" class="profile-avatar">
                     ${isBday ? '<span class="bday-label">MY BIRTHDAY NOW!!</span>' : ''}
                 </div>
-                <button class="btn btn-grey" style="position: absolute; right: 20px; top: 20px; border-radius: 50%; width: 40px; height: 40px; padding: 0;" onclick="closeDetail()">✕</button>
+                <button class="btn btn-grey" style="position: absolute; right: 20px; top: 20px; border-radius: 50%; width: 40px; height: 40px; padding: 0; z-index:100" onclick="closeDetail()">✕</button>
             </div>
-            
-            <div style="padding: 80px 40px 40px;">
+            <div style="padding: 80px 4% 40px;">
                 <h2 style="font-size: 2.5rem; margin: 0;">${item.title}</h2>
-                <div style="color: var(--accent); font-weight: 700; margin: 10px 0;">
-                    ${item.synopsis || 'Actor / Director'} • ${age}
-                </div>
-                
-                <div id="edit-controls-p" style="margin-top:15px"></div>
-
-                <h3 style="margin-top: 40px; border-left: 5px solid var(--accent); padding-left: 15px;">Filmography</h3>
+                <p style="color: var(--accent); font-weight: 700; margin: 10px 0;">${item.synopsis || 'Artist'} • ${age}</p>
+                <div id="edit-controls-p"></div>
+                <h3 style="margin-top: 40px; border-left: 5px solid var(--accent); padding-left: 15px;">Appearances</h3>
                 <div id="person-credits" class="slider" style="gap:15px"></div>
             </div>
-        </div>
-    `;
-
-    // Add Edit/Delete buttons if Admin
-    if(isAdmin) {
-        document.getElementById('edit-controls-p').innerHTML = `
-            <button class="btn btn-grey" style="font-size:0.7rem" onclick='openStudio(${JSON.stringify(item).replace(/'/g, "&apos;")})'>Edit Profile</button>
         `;
-    }
 
-    // Fill Filmography
-    const credits = fullLibrary.filter(m => m.castIds && m.castIds.includes(item.id.toString()));
-    const creditBox = document.getElementById('person-credits');
-    credits.forEach(m => {
-        const div = document.createElement('div');
-        div.className = 'card';
-        div.style.cssText = `min-width:200px; height:120px; background-image:url(${m.cover})`;
-        div.onclick = () => openDetail(m);
-        creditBox.appendChild(div);
-    });
-};
+        if(isAdmin) {
+            document.getElementById('edit-controls-p').innerHTML = `
+                <button class="btn btn-grey" style="font-size:0.7rem" onclick='closeDetail(); openStudio(${JSON.stringify(item).replace(/'/g, "&apos;")})'>Edit Profile</button>
+            `;
+        }
 
-// UPDATE: Global Search to show Circle Profiles
-function globalSearch(query) {
-    if (query.length < 2) { renderUI(); return; }
-    const container = document.getElementById('dynamic-rows');
-    document.getElementById('hero-slider-container').style.display = 'none';
-    
-    const filtered = fullLibrary.filter(item => item.title.toLowerCase().includes(query.toLowerCase()));
+        // Fill Filmography with navigation fix
+        const credits = fullLibrary.filter(m => m.castIds && m.castIds.includes(item.id.toString()));
+        const creditBox = document.getElementById('person-credits');
+        credits.forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.style.cssText = `min-width:200px; height:120px; background-image:url(${m.cover})`;
+            // Use a small timeout to let the modal refresh
+            div.onclick = () => { closeDetail(); setTimeout(() => openDetail(m), 50); };
+            creditBox.appendChild(div);
+        });
 
-    container.innerHTML = `<div class="row"><h3>Searching for "${query}"</h3><div id="search-grid" style="display:flex; flex-direction:column; gap:10px"></div></div>`;
-    const grid = document.getElementById('search-grid');
-    
-    filtered.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'ep-row';
-        row.style.borderRadius = '10px';
-        const isPerson = item.type === 'Person';
-        row.innerHTML = `
-            <img src="${item.cover}" class="${isPerson ? 'search-item-circle' : 'search-item-thumb'}" 
-                 style="${!isPerson ? 'width:80px; height:45px; border-radius:5px; object-fit:cover; margin-right:15px' : ''}">
-            <div style="flex:1">
-                <b>${item.title}</b><br>
-                <small style="color:var(--text-dim)">${item.type} ${isPerson ? '• ' + (item.synopsis || '') : ''}</small>
+    } else {
+        // STANDARD MOVIE/SERIES/ALBUM LAYOUT
+        container.innerHTML = `
+            <div id="modal-img" style="height: 450px; background-size: cover; position: relative; background-position: center; background-image: linear-gradient(to top, var(--bg-card), transparent), url(${item.cover})">
+                <div id="edit-controls" style="position: absolute; left: 30px; bottom: 30px; display: flex; gap: 12px;"></div>
+                <button class="btn btn-grey" style="position: absolute; right: 30px; top: 30px; border-radius: 50%; width: 50px; height: 50px; padding: 0;" onclick="closeDetail()">✕</button>
+            </div>
+            <div style="padding: 5% 7%;">
+                <h2 style="font-size: 3rem; margin: 0;">${item.title}</h2>
+                <p style="color: var(--accent); font-weight: 700; margin: 15px 0;">${item.releaseDate || ''}</p>
+                <p style="color: var(--text-dim); line-height: 1.8; font-size: 1.1rem;">${item.synopsis}</p>
+                <div id="modal-casts" style="margin-top: 30px;"></div>
+                <div id="ep-section">
+                    <h3 id="section-label" style="margin-top: 50px; border-left: 5px solid var(--accent); padding-left: 20px;">Content</h3>
+                    <div id="modal-episodes"></div>
+                </div>
             </div>
         `;
-        row.onclick = () => openDetail(item);
-        grid.appendChild(row);
-    });
-}
+
+        if(isAdmin) {
+            document.getElementById('edit-controls').innerHTML = `
+                <button class="btn btn-red" onclick='closeDetail(); openStudio(${JSON.stringify(item).replace(/'/g, "&apos;")})'>Edit Entry</button>
+            `;
+        }
+
+        // Render Cast Chips with navigation fix
+        if(item.castIds) {
+            const castBox = document.getElementById('modal-casts');
+            item.castIds.forEach(id => {
+                const person = fullLibrary.find(p => p.id == id);
+                if(person) {
+                    const chip = document.createElement('span');
+                    chip.className = 'cast-chip';
+                    chip.style.cursor = 'pointer';
+                    chip.innerText = person.title;
+                    chip.onclick = () => { closeDetail(); setTimeout(() => openDetail(person), 50); };
+                    castBox.appendChild(chip);
+                }
+            });
+        }
+
+        // Render Episodes or Album Grid
+        const epList = document.getElementById('modal-episodes');
+        if(item.type === 'Album') {
+            const grid = document.createElement('div');
+            grid.className = 'album-grid';
+            item.mediaIds.forEach(id => {
+                const m = fullLibrary.find(x => x.id == id);
+                if(m) {
+                    const div = document.createElement('div');
+                    div.className = 'album-item';
+                    div.style.backgroundImage = `url(${m.cover})`;
+                    div.onclick = () => { closeDetail(); setTimeout(() => openDetail(m), 50); };
+                    grid.appendChild(div);
+                }
+            });
+            epList.appendChild(grid);
+        } else {
+            currentPlaylist = item.episodes || [];
+            currentPlaylist.forEach((ep, i) => {
+                const row = document.createElement('div');
+                row.className = 'ep-row';
+                row.innerHTML = `<div style="width:40px; color:var(--accent)">${i+1}</div><div style="flex:1"><b>${ep.title}</b></div><div style="color:var(--accent)">PLAY ▶</div>`;
+                row.onclick = () => playVideo(i);
+                epList.appendChild(row);
+            });
+        }
+    }
+    modal.style.display = 'flex';
+};
 
     /* Add this to your window.onload or at the bottom of your scripts */
 document.querySelector('.search-input').addEventListener('focus', function() {
@@ -1117,6 +1188,48 @@ document.querySelector('.search-input').addEventListener('blur', function() {
     if(window.innerWidth < 768) {
         document.querySelector('.logo').style.display = 'block'; // Show logo again
     }
+});
+
+let deferredPrompt;
+const installBox = document.getElementById('pwa-install-prompt');
+
+// Listen for the 'beforeinstallprompt' event
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the default browser mini-infobar from appearing
+    e.preventDefault();
+    deferredPrompt = e;
+
+    // Check if the user has already seen this in this session
+    const hasSeenPrompt = sessionStorage.getItem('pwa_prompt_shown');
+    
+    if (!hasSeenPrompt) {
+        // Show our custom pop-up after a 3 second delay for better UX
+        setTimeout(() => {
+            installBox.classList.add('show');
+            sessionStorage.setItem('pwa_prompt_shown', 'true');
+        }, 3000);
+    }
+});
+
+// Handle the Install button click
+document.getElementById('btn-pwa-install').addEventListener('click', async () => {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to install: ${outcome}`);
+        deferredPrompt = null;
+        installBox.classList.remove('show');
+    }
+});
+
+function closePWA() {
+    installBox.classList.remove('show');
+}
+
+// Ensure the pop-up hides if the app is already installed
+window.addEventListener('appinstalled', () => {
+    installBox.classList.remove('show');
+    deferredPrompt = null;
 });
     </script>
 </body>
